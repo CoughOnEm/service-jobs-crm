@@ -178,6 +178,15 @@ const storage = {
         }
         return { data: { publicUrl: map[path] || "" } };
       },
+      async createSignedUrl(path: string, _expiresIn: number) {
+        let map: Record<string, string> = {};
+        try {
+          map = JSON.parse(localStorage.getItem(IMG_KEY) || "{}");
+        } catch {
+          map = {};
+        }
+        return { data: { signedUrl: map[path] || "" }, error: null };
+      },
     };
   },
 };

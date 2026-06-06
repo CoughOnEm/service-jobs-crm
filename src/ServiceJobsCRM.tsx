@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type CSSProperties } from "react";
-import { supabase, IS_LOCAL } from "./supabase";
+import { supabase, IS_LOCAL, setRoom } from "./supabase";
 
 /* ============================================================
    Types
@@ -109,12 +109,17 @@ async function compressImage(file: File): Promise<Blob> {
 
 async function uploadScreenshot(room: string, blob: Blob): Promise<string | null> {
   const path = `${room}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
-  const { error } = await supabase.storage
+  const up = await supabase.storage
     .from("screenshots")
     .upload(path, blob, { contentType: "image/jpeg", upsert: false });
-  if (error) return null;
-  const { data } = supabase.storage.from("screenshots").getPublicUrl(path);
-  return data.publicUrl;
+  if (up.error) return null;
+  // Bucket is private — return a long-lived signed URL. The URL is stored inside
+  // the room-protected jobs row, so only someone with the password can reach it.
+  const { data, error } = await supabase.storage
+    .from("screenshots")
+    .createSignedUrl(path, 60 * 60 * 24 * 365);
+  if (error || !data) return null;
+  return data.signedUrl;
 }
 
 /* ============================================================
@@ -1126,6 +1131,9 @@ function Stat({ label, value, color }: { label: string; value: string; color?: s
    Main component
    ============================================================ */
 export default function ServiceJobsCRM({ room, onLock }: { room: string; onLock: () => void }) {
+  // Scope the Supabase client to this room (adds the x-room header) before any query runs.
+  useMemo(() => setRoom(room), [room]);
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [view, setView] = useState<"kanban" | "list" | "vendors">("kanban");
@@ -1178,15 +1186,16 @@ export default function ServiceJobsCRM({ room, onLock }: { room: string; onLock:
       if (alive) setLoading(false);
     })();
 
-    const ch = supabase
-      .channel("room:" + room)
-      .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: "room=eq." + room }, () => loadJobs())
-      .on("postgres_changes", { event: "*", schema: "public", table: "vendors", filter: "room=eq." + room }, () => loadVendors())
-      .subscribe();
+    // Locked-down RLS can't drive realtime (it needs the room header, which the
+    // realtime socket doesn't send), so we poll every 5s for cross-device updates.
+    const iv = window.setInterval(() => {
+      loadJobs();
+      loadVendors();
+    }, 5000);
 
     return () => {
       alive = false;
-      supabase.removeChannel(ch);
+      window.clearInterval(iv);
     };
   }, [room, loadJobs, loadVendors]);
 
