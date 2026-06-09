@@ -8,7 +8,7 @@ create table public.jobs (
   id uuid primary key default gen_random_uuid(),
   room text not null,
   client text not null,
-  platform text not null check (platform in ('instagram', 'x', 'tiktok', 'whatsapp', 'telegram')),
+  platform text not null check (platform in ('instagram', 'x', 'tiktok', 'whatsapp', 'telegram', 'facebook', 'youtube')),
   service text not null,
   status text not null default 'pending' check (status in ('pending', 'in_progress', 'completed', 'failed')),
   price text,

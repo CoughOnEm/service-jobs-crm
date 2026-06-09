@@ -5,7 +5,7 @@ import { supabase, IS_LOCAL, setRoom } from "./supabase";
    Types
    ============================================================ */
 type Status = "pending" | "in_progress" | "completed" | "failed";
-type PlatformId = "instagram" | "x" | "tiktok" | "whatsapp" | "telegram";
+type PlatformId = "instagram" | "x" | "tiktok" | "whatsapp" | "telegram" | "facebook" | "youtube";
 
 interface Job {
   id: string;
@@ -44,6 +44,8 @@ const PLATFORMS = [
   { id: "tiktok", label: "TikTok", color: "#fe2c55" },
   { id: "whatsapp", label: "WhatsApp", color: "#25D366" },
   { id: "telegram", label: "Telegram", color: "#26A5E4" },
+  { id: "facebook", label: "Facebook", color: "#1877F2" },
+  { id: "youtube", label: "YouTube", color: "#FF0000" },
 ] as const;
 
 const COLS = [
@@ -176,6 +178,19 @@ function PlatformLogo({ id, size = 16 }: { id: PlatformId; size?: number }) {
             fill="#fff"
             d="M5.5 11.7c3.7-1.6 6.16-2.66 7.38-3.18 3.51-1.46 4.24-1.72 4.72-1.73.1 0 .34.02.49.15.13.1.16.25.18.35.02.1.04.33.02.51-.2 2.06-1.04 7.05-1.47 9.35-.18.97-.54 1.3-.88 1.33-.74.07-1.3-.49-2.02-.96-1.12-.74-1.76-1.2-2.85-1.92-1.26-.83-.44-1.28.28-2.02.19-.2 3.45-3.16 3.51-3.43.01-.03.01-.16-.06-.22-.07-.06-.18-.04-.25-.02-.11.02-1.8 1.14-5.1 3.36-.48.33-.92.49-1.32.48-.43-.01-1.27-.25-1.89-.45-.76-.25-1.36-.38-1.31-.8.03-.22.33-.45.91-.69z"
           />
+        </svg>
+      );
+    case "facebook":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-label="Facebook" fill="#1877F2">
+          <path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07c0 6.02 4.39 11.01 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.5c-1.48 0-1.94.93-1.94 1.88v2.26h3.3l-.53 3.49h-2.77V24C19.61 23.08 24 18.1 24 12.07z" />
+        </svg>
+      );
+    case "youtube":
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-label="YouTube">
+          <path fill="#FF0000" d="M23.5 6.2a3.02 3.02 0 0 0-2.12-2.14C19.5 3.55 12 3.55 12 3.55s-7.5 0-9.38.51A3.02 3.02 0 0 0 .5 6.2 31.6 31.6 0 0 0 0 12a31.6 31.6 0 0 0 .5 5.8 3.02 3.02 0 0 0 2.12 2.14C4.5 20.45 12 20.45 12 20.45s7.5 0 9.38-.51a3.02 3.02 0 0 0 2.12-2.14A31.6 31.6 0 0 0 24 12a31.6 31.6 0 0 0-.5-5.8z" />
+          <path fill="#fff" d="M9.6 15.6 15.8 12 9.6 8.4z" />
         </svg>
       );
   }
@@ -1200,9 +1215,16 @@ export default function ServiceJobsCRM({ room, onLock }: { room: string; onLock:
   }, [room, loadJobs, loadVendors]);
 
   /* ---- derived ---- */
+  // Master service list = services used on jobs PLUS services offered by vendors,
+  // so adding services to a vendor grows the list everywhere (autocomplete, filter, toggles).
   const allServices = useMemo(
-    () => [...new Set(jobs.map((j) => j.service).filter(Boolean))].sort(),
-    [jobs]
+    () =>
+      [
+        ...new Set(
+          [...jobs.map((j) => j.service), ...vendors.flatMap((v) => v.services)].filter(Boolean)
+        ),
+      ].sort(),
+    [jobs, vendors]
   );
   const allClients = useMemo(
     () => [...new Set(jobs.map((j) => j.client).filter(Boolean))].sort(),
